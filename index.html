@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATHENA –  Ferramentas PRO</title>
+
+<style>
+/* ===== RESET ===== */
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+
+/* ===== BODY ===== */
+body { background:#000; color:white; padding:20px; }
+.container-main { display:flex; gap:20px; max-width:1200px; margin:auto; }
+.left-panel { flex:1; }
+.right-panel { width:300px; }
+
+/* ===== CARDS ===== */
+.card { background:#111111; padding:15px; border-radius:12px; margin-bottom:15px; box-shadow:0 0 15px #0aff9d33; }
+.card-section { margin-bottom:12px; }
+h2,h3,h4 { color:#0aff9d; margin-bottom:10px; }
+
+/* ===== BUTTONS ===== */
+button { padding:10px 12px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; }
+.small-btn { font-size:14px; padding:6px 10px; }
+button:hover { opacity:0.85; }
+button[data-danger] { background:#ff3b3b; color:#fff; }
+
+/* ===== INPUTS ===== */
+input, select { width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:1px solid #0aff9d55; background:#222; color:white; }
+
+/* ===== TABLE ===== */
+table { width:100%; border-collapse:collapse; margin-top:8px; }
+th,td { border:1px solid #0aff9d33; padding:6px; text-align:left; }
+th { background:#0aff9d22; }
+
+/* ===== MUTED TEXT ===== */
+.muted { color:#aaa; font-size:13px; }
+.result-box div { margin-top:6px; }
+
+/* ===== LOADING ===== */
+#loadingScreen { position:fixed; width:100%; height:100%; background:black; display:flex; justify-content:center; align-items:center; flex-direction:column; top:0; left:0; z-index:9999; }
+.loader { border:6px solid #222; border-top:6px solid #0aff9d; border-radius:50%; width:70px; height:70px; animation:spin 1s linear infinite; }
+@keyframes spin { 0%{transform:rotate(0deg);} 100%{transform:rotate(360deg);} }
+.loading-text { color:white; margin-top:15px; font-size:18px; }
+
+/* ===== FLOATING WHATSAPP ===== */
+.floating-whatsapp { position:fixed; bottom:20px; right:20px; background:#0aff9d; padding:12px 18px; border-radius:50px; font-weight:800; color:#000; text-decoration:none; z-index:999; }
+.floating-whatsapp:hover { opacity:0.85; }
+</style>
+</head>
+
+<body>
+
+<!-- ===== TELA DE LOADING ===== -->
+<div id="loadingScreen">
+  <div class="loader"></div>
+  <div class="loading-text">Carregando...</div>
+</div>
+
+<script>
+setTimeout(()=>{ document.getElementById("loadingScreen").style.display="none"; },1500);
+</script>
+
+<!-- ===== MAIN CONTAINER ===== -->
+<div class="container-main">
+  <div class="left-panel">
+
+    <!-- HOME / BANK -->
+    <section class="card card-section" id="home">
+      <h2>ATHENA – Ferramentas PRO</h2>
+      <label>Banca atual:</label>
+      <input type="number" id="bankInput" placeholder="0.00"/>
+      <label>Divisão da banca:</label>
+      <select id="bankSplit">
+        <option value="conserv">Conservador (1%)</option>
+        <option value="agress">Moderado (1,5%)</option>
+      </select>
+      <button id="saveBankBtn">Salvar banca</button>
+      <div class="result-box" style="margin-top:12px">
+        <div><strong>Banca:</strong> R$ <span id="bankDisplay">0.00</span></div>
+        <div><strong>Stake inicial:</strong> R$ <span id="baseStakeDisplay">0.00</span></div>
+        <div><strong>Status VIP:</strong> <span id="vipFlag">GRÁTIS</span></div>
+      </div>
+    </section>
+
+    <!-- ===== DUTCHING 2 SELEÇÕES ===== -->
+<section class="card card-section" id="dutchingSection">
+  <h3>Calculadora de Dutching (2 seleções)</h3>
+  <p class="muted">Distribua sua banca entre 2 seleções. <span style="color: #0a6cff;">Mais seleções disponíveis apenas na versão VIP</span>.</p>
+
+  <label>Seleção 1 - Odd:</label>
+  <input type="number" id="odd1" step="0.01" placeholder="Ex: 2.10">
+  
+  <label>Seleção 2 - Odd:</label>
+  <input type="number" id="odd2" step="0.01" placeholder="Ex: 3.50">
+
+  <label>valor da stake</label>
+  <input type="number" id="dutchBank" placeholder="0.00">
+
+  <button id="calcDutchBtn">Calcular Dutching</button>
+  <div id="dutchResult" class="muted" style="margin-top:8px;"></div>
+</section>
+
+<script>
+function calcDutching(odd1, odd2, totalBank){
+  const stake1 = (totalBank / ((1/odd1)+(1/odd2))) / odd1;
+  const stake2 = (totalBank / ((1/odd1)+(1/odd2))) / odd2;
+  const totalStake = stake1 + stake2;
+  const retorno1 = stake1 * odd1;
+  const retorno2 = stake2 * odd2;
+  const lucro = retorno1 - totalStake;
+  return {stake1, stake2, lucro};
+}
+
+document.getElementById("calcDutchBtn").addEventListener("click",()=>{
+  const o1 = parseFloat(document.getElementById("odd1").value);
+  const o2 = parseFloat(document.getElementById("odd2").value);
+  const bank = parseFloat(document.getElementById("dutchBank").value);
+  const resultDiv = document.getElementById("dutchResult");
+
+  if(isNaN(o1) || isNaN(o2) || isNaN(bank) || o1<=1 || o2<=1 || bank<=0){
+    resultDiv.textContent = "Preencha todos os campos com valores válidos.";
+    return;
+  }
+
+  // Limite de 2 seleções
+  const maxSelections = 2;
+  if(maxSelections < 2){
+    resultDiv.textContent = "Mais seleções disponíveis apenas na versão VIP!";
+    return;
+  }
+
+  const res = calcDutching(o1, o2, bank);
+  resultDiv.innerHTML = `
+    💸 Stake Seleção 1: R$ ${res.stake1.toFixed(2)}<br>
+    💸 Stake Seleção 2: R$ ${res.stake2.toFixed(2)}<br>
+    🏆 Lucro potencial: R$ ${res.lucro.toFixed(2)}
+  `;
+});
+</script>
+
+
+    <!-- Seção DE ESTRATÉGIA -->
+    <section class="card card-section">
+      <h3>Estratégias</h3>
+      <label>Selecione estratégia:</label>
+      <select id="strategySelect">
+        <option value="both">AMBAS MARCAM</option>
+        <option value="over35">Over 3.5</option>
+        <option value="under15">Under 1.5</option>
+      </select>
+      <button id="calcStratBtn">Calcular rodadas</button>
+      <button id="resetStratBtn">Reiniciar sequência</button>
+      <div id="roundsBox" style="margin-top:10px;"></div>
+      <label>Rodada WIN (indique qual a rodada do green ou RED):</label>
+      <select id="winRoundSelect"></select>
+      <label>Odd WIN (odd que bateu seu green):</label>
+      <input type="number" id="winOdd" step="0.01"/>
+      <button id="applyWinRoundBtn" style="background-color: #0aff9d;">Registrar WIN</button>
+      <button id="applyLossBtn" class="small-btn" style="background:#ff3b3b">Registrar LOSS</button>
+      <div id="stratMsg" class="muted"></div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="history" class="card card-section">
+      <h3>Histórico</h3>
+      <table>
+        <thead><tr><th>Data</th><th>Estratégia</th><th>Odd DO GREEN</th><th>Resultado</th><th>Banca</th></tr></thead>
+        <tbody id="historyTbody"></tbody>
+      </table>
+      <button id="clearHistoryBtn" class="small-btn">Limpar histórico</button><br><br>
+      <div class="muted">Aqui ficam salvos suas apostas com horário atualizado para você acompanhar seu progresso dia pós dia.</div>
+    </section>
+
+    <!-- VIP -->
+    <section id="vipSection" class="card card-section">
+      <h3>Área VIP - envie seu e-mail para ter acesso a conteúdo EXCLUSIVO e PROFISSIONAL</h3>
+    <div style="color: cyan;">
+      <ul><li>SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER</li></ul>
+      <ul><li>SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER</li></ul>
+      <ul><li>SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER</li></ul>
+      <ul><li>SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER</li></ul>
+      <ul><li>SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER</li></ul>
+      <ul><li>SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER - SEM SPOILER</li></ul>
+    </div>
+      <BR></BR>
+
+
+      <form id="vipForm">
+        <label>Nome completo:</label>
+        <input type="text" id="nome" required>
+        <label>WhatsApp:</label>
+        <input type="tel" id="whatsapp" placeholder="*(xx)xxxxx-xxxx" required>
+        <label>Email:</label>
+        <input type="email" id="email" required>
+        <label>Banca inicial: <span style="color: chartreuse;">*precisa colocar um valor, nem que seja "0"</span></label>
+        <input type="number" id="banca" required>
+        <button type="submit">Enviar Cadastro VIP</button>
+      </form>
+
+      <div id="vipStatus" class="muted" style="margin-top:8px;"></div>
+    </section>
+  </div>
+
+  <!-- LADO DIRETO DO PAINÉL -->
+  <aside class="right-panel">
+    <div class="card">
+      <h4>Resumo rápido</h4>
+      <div class="result-box">
+        <div><strong>Banca:</strong> R$ <span id="bankDisplayRight">0.00</span></div>
+        <div><strong>Stake inicial:</strong> R$ <span id="baseStakeDisplayRight">0.00</span></div>
+        <div><strong>Status VIP:</strong> <span id="vipFlagRight">GRÁTIS</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>Admin (local)</h4>
+      <div class="muted">Área EXCLUSIVA para o ADM da plataforma.</div>
+      <button id="openAdminBtn" class="small-btn">Área do Admin</button>
+    </div>
+  </aside>
+</div>
+
+<a href="https://wa.me/?text=Quero%20saber%20sobre%20o%20VIP%20ATHENA" class="floating-whatsapp" target="_blank">WHATSAPP</a>
+
+<!-- ===== ADMIN MODAL ===== -->
+<div id="adminModal" class="card" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:10000; width:500px;">
+  <button onclick="closeAdmin()" style="float:right;">✕</button>
+  <h3>Painel Admin (local)</h3>
+  <label>Supabase URL:</label><input type="text" id="adminSupabaseUrl">
+  <label>Service Role Key:</label><input type="text" id="adminServiceKey">
+  <button id="adminLoginBtn" class="small-btn">Login</button>
+  <button id="adminLogoutBtn" class="small-btn" style="background:#ff3b3b">Logout</button>
+  <hr>
+  <h4>Pedidos pendentes</h4>
+  <table id="adminPendingTable" style="width:100%;"><thead><tr><th>ID</th><th>E-mail</th><th>Nota</th><th>Data</th><th>Ações</th></tr></thead><tbody></tbody></table>
+  <div id="adminLog" style="background:#001318; color:#bfece2; padding:8px; height:120px; overflow:auto; margin-top:12px;"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script>
+// ===== CONFIG =====
+const SUPABASE_URL = "https://mgsodtakdewveoyuyyjc.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1nc29kdGFrZGV3dmVveXV5eWpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5OTgyODAsImV4cCI6MjA3OTU3NDI4MH0.EzLtLKMDoRaHWCcwmor4ppM2vn6PGJfTmFOdduUmkXs";
+
+const ULTRA_INSTANCE = "instance152239";
+const ULTRA_TOKEN = "c2rifn9gergl6818";
+const ADMIN_WHATSAPP = "+5551980448195";
+
+let publicSupabaseClient = null;
+function initPublicSupabase(){ if(!publicSupabaseClient){ publicSupabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); console.log("Supabase ready"); } return publicSupabaseClient; }
+
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+
+/* ===== BANK ===== */
+function readBank(){ return parseFloat(localStorage.getItem("athena_bank")||"0"); }
+function saveBankLocal(v){ localStorage.setItem("athena_bank", Number(v).toFixed(2)); renderBank(); }
+function readSplit(){ return localStorage.getItem("athena_split")||"conserv"; }
+function saveSplit(s){ localStorage.setItem("athena_split", s); renderBank(); }
+function renderBank(){
+  const bank = readBank();
+  $("#bankDisplay").textContent = bank.toFixed(2);
+  $("#bankDisplayRight").textContent = bank.toFixed(2);
+  const split = readSplit();
+  const pct = split==="conserv"?0.01:0.015;
+  $("#baseStakeDisplay").textContent = (bank*pct).toFixed(2);
+  $("#baseStakeDisplayRight").textContent = (bank*pct).toFixed(2);
+  $("#vipFlag").textContent = (localStorage.getItem("athena_vip_status")==="approved")?"VIP":"GRÁTIS";
+  $("#vipFlagRight").textContent = (localStorage.getItem("athena_vip_status")==="approved")?"VIP":"GRÁTIS";
+}
+
+$("#saveBankBtn").addEventListener("click",()=>{
+  const v=Number($("#bankInput").value||0);
+  if(!v||v<=0){ alert("Informe banca válida"); return; }
+  saveSplit($("#bankSplit").value);
+  saveBankLocal(v);
+  alert(`Banca salva: R$ ${Number(v).toFixed(2)}`);
+});
+
+/* ===== STRATEGY LOGIC ===== */
+function baseStakeFromBank(){ const bank=readBank(); const split=readSplit(); const pct=split==="conserv"?0.01:0.015; return Number((bank*pct).toFixed(2)); }
+function computeRounds(strategy, base){ const rounds=[]; if(strategy==="both"){ let s=base; for(let i=1;i<=3;i++){ rounds.push({round:i, stake:Number(s.toFixed(2))}); s*=2; } } if(strategy==="over35"){ let s=base; for(let i=1;i<=4;i++){ rounds.push({round:i, stake:Number(s.toFixed(2))}); s*=1.5; } } if(strategy==="under15"){ let s=base; for(let i=1;i<=4;i++){ rounds.push({round:i, stake:Number(s.toFixed(2))}); s*=1.7; } } return rounds; }
+
+$("#calcStratBtn").addEventListener("click",()=>{
+  const strat=$("#strategySelect").value;
+  const base=baseStakeFromBank();
+  if(!base||base<=0){ alert("Defina sua banca e divisão antes"); return; }
+  const rounds=computeRounds(strat, base);
+  let html=`<div>Stake base: R$ ${base.toFixed(2)}</div><ul>`;
+  rounds.forEach(r=>html+=`<li>Rodada ${r.round}: R$ ${r.stake.toFixed(2)}</li>`);
+  html+="</ul>";
+  $("#roundsBox").innerHTML=html;
+  $("#stratMsg").textContent="Calculado. Escolha rodada do WIN ou registre LOSS.";
+  const sel=$("#winRoundSelect");
+  sel.innerHTML='<option value="">— selecione —</option>';
+  rounds.forEach(r=>{ const opt=document.createElement("option"); opt.value=r.round; opt.textContent=`Rod ${r.round} — R$ ${r.stake.toFixed(2)}`; sel.appendChild(opt); });
+  sessionStorage.setItem("athena_current_strat", JSON.stringify({strategy:strat, rounds}));
+  sessionStorage.setItem("athena_current_roundIndex","0");
+});
+
+$("#resetStratBtn").addEventListener("click",()=>{
+  sessionStorage.removeItem("athena_current_strat");
+  sessionStorage.removeItem("athena_current_roundIndex");
+  $("#roundsBox").innerHTML="Sequência reiniciada.";
+  $("#stratMsg").textContent="";
+});
+
+/* APPLY WIN / LOSS */
+$("#applyWinRoundBtn").addEventListener("click",async()=>{
+  const cur=JSON.parse(sessionStorage.getItem("athena_current_strat")||"null");
+  if(!cur){ alert("Calcule as rodadas primeiro"); return; }
+  const sel=Number($("#winRoundSelect").value||0);
+  const winOdd=Number($("#winOdd").value||0);
+  if(!sel||!winOdd||winOdd<=1){ alert("Selecione rodada e informe odd >1.0"); return; }
+  const usedRounds=cur.rounds.slice(0,sel);
+  const totalSpent=usedRounds.reduce((s,r)=>s+r.stake,0);
+  const winningStake=cur.rounds[sel-1].stake;
+  const totalReturn=winningStake*winOdd;
+  const net=totalReturn-totalSpent;
+  const bank=readBank();
+  const newBank=Number((bank+net).toFixed(2));
+  localStorage.setItem("athena_bank",Number(newBank).toFixed(2));
+  renderBank();
+  sessionStorage.removeItem("athena_current_strat");
+  sessionStorage.removeItem("athena_current_roundIndex");
+  $("#roundsBox").innerHTML=`WIN na rodada ${sel}. Lucro R$ ${net.toFixed(2)}.`;
+  $("#stratMsg").textContent=`WIN aplicado — banca R$ ${newBank.toFixed(2)}.`;
+  try{ await pushHistory({strategy:cur.strategy, odd:winOdd, result:`WIN (rod ${sel})`, bankAfter:newBank}); }catch(e){ console.warn(e); }
+});
+
+$("#applyLossBtn").addEventListener("click",async()=>{
+  const cur=JSON.parse(sessionStorage.getItem("athena_current_strat")||"null");
+  if(!cur){ alert("Calcule as rodadas primeiro"); return; }
+  let idx=Number(sessionStorage.getItem("athena_current_roundIndex")||0);
+  if(idx>=cur.rounds.length){ alert("Sequência esgotada — recalcule"); return; }
+  const round=cur.rounds[idx];
+  const bank=readBank();
+  const newBank=Number((bank-round.stake).toFixed(2));
+  localStorage.setItem("athena_bank",Number(newBank).toFixed(2));
+  renderBank();
+  idx+=1;
+  sessionStorage.setItem("athena_current_roundIndex",idx);
+  if(idx>=cur.rounds.length){
+    $("#roundsBox").innerHTML="Sequência finalizada sem sucesso.";
+    sessionStorage.removeItem("athena_current_strat");
+    sessionStorage.removeItem("athena_current_roundIndex");
+    $("#stratMsg").textContent="Sequência finalizada (sem sucesso).";
+  }else{
+    $("#stratMsg").textContent=`LOSS aplicado. Próxima stake: R$ ${cur.rounds[idx].stake.toFixed(2)} (rod ${cur.rounds[idx].round}).`;
+    let html=`<div>Stake base: R$ ${cur.rounds[0].stake.toFixed(2)}</div><ul>`;
+    cur.rounds.forEach(r=>html+=`<li>Rodada ${r.round}: R$ ${r.stake.toFixed(2)}</li>`);
+    html+="</ul>"; $("#roundsBox").innerHTML=html;
+  }
+  try{ await pushHistory({strategy:cur.strategy, odd:0, result:"LOSS", bankAfter:newBank}); }catch(e){ console.warn(e); }
+});
+
+/* ===== HISTORY ===== */
+async function pushHistory(entry){
+  const arr=JSON.parse(localStorage.getItem("athena_history")||"[]");
+  arr.push({date:new Date().toLocaleString(), ...entry});
+  localStorage.setItem("athena_history",JSON.stringify(arr));
+  renderHistory();
+}
+function renderHistory(){
+  const arr=JSON.parse(localStorage.getItem("athena_history")||"[]");
+  const tbody=$("#historyTbody"); tbody.innerHTML="";
+  arr.forEach(h=>{ const tr=document.createElement("tr"); tr.innerHTML=`<td>${h.date}</td><td>${h.strategy}</td><td>${h.odd}</td><td>${h.result}</td><td>R$ ${h.bankAfter}</td>`; tbody.appendChild(tr); });
+}
+$("#clearHistoryBtn").addEventListener("click",()=>{ localStorage.removeItem("athena_history"); renderHistory(); });
+
+/* ===== VIP FORM ===== */
+$("#vipForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const dados={ nome:$("#nome").value, whatsapp:$("#whatsapp").value, email:$("#email").value, banca:$("#banca").value, status:"Novo pedido VIP recebido", criado_em:new Date().toISOString() };
+  // SUPABASE
+  try{ initPublicSupabase(); await publicSupabaseClient.from("cadastros").insert([dados]); }catch(e){ console.warn(e); }
+  // WHATSAPP ADMIN
+  const msgAdmin=`📢 NOVO CADASTRO VIP\n\n👤 Nome: ${dados.nome}\n📱 WhatsApp: ${dados.whatsapp}\n📧 Email: ${dados.email}\n💰 Banca: R$${dados.banca}\nStatus: Novo pedido VIP recebido`;
+  await fetch(`https://api.ultramsg.com/${ULTRA_INSTANCE}/messages/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:ULTRA_TOKEN,to:ADMIN_WHATSAPP,body:msgAdmin})});
+  // WHATSAPP CLIENTE
+  await fetch(`https://api.ultramsg.com/${ULTRA_INSTANCE}/messages/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:ULTRA_TOKEN,to:dados.whatsapp,body:"🔥 Seu cadastro VIP foi recebido! Em breve você será aprovado e adicionado ao grupo exclusivo."})});
+  $("#vipStatus").textContent="Cadastro enviado com sucesso! Aguarde aprovação.";
+});
+
+/* ===== ADMIN MODAL ===== */
+function openAdmin(){ $("#adminModal").style.display="block"; }
+function closeAdmin(){ $("#adminModal").style.display="none"; }
+$("#openAdminBtn").addEventListener("click",openAdmin);
+
+/* ===== INIT ===== */
+renderBank(); renderHistory();
+</script>
+
+</body>
+</html>
+
+
+
+
+
